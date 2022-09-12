@@ -1,5 +1,9 @@
 const express = require("express");
 const Book = require("../models/book");
+const jsonschema = require("jsonschema");
+const bookSchema = require("../schema/bookSchemaNew.json");
+const bookSchemaUpdate = require("../schema/bookSchemaUpdate.json");
+const ExpressError = require("../expressError");
 
 const router = new express.Router();
 
@@ -8,6 +12,8 @@ const router = new express.Router();
 
 router.get("/", async function (req, res, next) {
   try {
+
+
     const books = await Book.findAll(req.query);
     return res.json({ books });
   } catch (err) {
@@ -28,19 +34,43 @@ router.get("/:id", async function (req, res, next) {
 
 /** POST /   bookData => {book: newBook}  */
 
-router.post("/", async function (req, res, next) {
+// router.post("/", async function (req, res, next) {
+//   try {
+//     const book = await Book.create(req.body);
+//     return res.status(201).json({ book });
+//   } catch (err) {
+//     return next(err);
+//   }
+// });
+
+router.post("/", async function(req, res, next) {
   try {
-    const book = await Book.create(req.body);
-    return res.status(201).json({ book });
-  } catch (err) {
-    return next(err);
+    const result = jsonschema.validate(req.body, bookSchema)
+    console.log(req.body)
+    if (!result.valid) {
+      let listOfErrors = result.errors.map(error => error.stack);
+      let error = new ExpressError(listOfErrors, 400);
+      return next(error);
+    }
+    const book = await Book.create(req.body)
+    return res.status(201).json({book});
+  } catch(e) {
+    return next(e);
   }
-});
+})
 
 /** PUT /[isbn]   bookData => {book: updatedBook}  */
 
 router.put("/:isbn", async function (req, res, next) {
   try {
+    const result = jsonschema.validate(req.body, bookSchemaUpdate)
+
+    if (!result.valid) {
+      let listOfErrors = result.errors.map(error => error.stack);
+      let error = new ExpressError(listOfErrors, 400);
+      return next(error);
+    }
+
     const book = await Book.update(req.params.isbn, req.body);
     return res.json({ book });
   } catch (err) {
